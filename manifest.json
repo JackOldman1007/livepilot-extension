@@ -1,0 +1,89 @@
+{
+  "manifest_version": 3,
+  "name": "LivePilot",
+  "version": "0.9.0",
+  "description": "TikTok Live Commerce Operator Co-Pilot — viewer intelligence, chat capture, host display sync",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "activeTab",
+    "notifications",
+    "downloads"
+  ],
+  "host_permissions": [
+    "https://shop.tiktok.com/*",
+    "https://*.tiktok.com/streamer*",
+    "https://shop.tiktok.com/workbench/*",
+    "http://localhost/*",
+    "http://localhost:27151/*",
+    "http://127.0.0.1:27151/*",
+    "https://patina-luxe.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://shop.tiktok.com/streamer*",
+        "https://*.tiktok.com/streamer*",
+        "http://localhost:*/streamer*"
+      ],
+      "js": ["lib/network-tap.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://shop.tiktok.com/streamer*",
+        "https://*.tiktok.com/streamer*",
+        "http://localhost:*/streamer*"
+      ],
+      "js": ["lib/selectors.js", "lib/dom-adapter.js", "lib/discovery.js", "content-scripts/live-console.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://shop.tiktok.com/live-board*",
+        "https://*.tiktok.com/live-board*",
+        "https://shop.tiktok.com/workbench/live/*"
+      ],
+      "js": ["lib/selectors.js", "lib/dom-adapter.js", "lib/discovery.js", "content-scripts/live-board.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://shop.tiktok.com/streamer/live/product*",
+        "https://*.tiktok.com/streamer/live/product*",
+        "http://localhost:*/streamer/live/product*"
+      ],
+      "js": ["lib/selectors.js", "lib/dom-adapter.js", "content-scripts/product-dashboard.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "side-panel/panel.html"
+  },
+  "action": {
+    "default_title": "LivePilot",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/network-tap-page.js"],
+      "matches": [
+        "https://shop.tiktok.com/*",
+        "https://*.tiktok.com/*"
+      ]
+    }
+  ]
+}

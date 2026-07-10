@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LivePilot</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <!-- ─── Status Bar ──────────────────────────────────── -->
+  <header id="status-bar">
+    <div class="status-left">
+      <span class="logo">LivePilot</span>
+      <span id="connection-status" class="status-badge disconnected">Disconnected</span>
+    </div>
+    <div class="status-right">
+      <span id="session-indicator" class="session-badge" title="Session active">--:--</span>
+    </div>
+  </header>
+
+  <!-- ─── Metric Bar (placeholder for Section 4) ─────── -->
+  <div id="metric-bar" class="metric-bar hidden">
+    <div class="metric" title="Current viewers">
+      <span class="metric-label">Viewers</span>
+      <span id="metric-viewers" class="metric-value">—</span>
+    </div>
+    <div class="metric" title="Gross merchandise value">
+      <span class="metric-label">GMV</span>
+      <span id="metric-gmv" class="metric-value">—</span>
+    </div>
+    <div class="metric" title="Click-through rate">
+      <span class="metric-label">CTR</span>
+      <span id="metric-ctr" class="metric-value">—</span>
+    </div>
+    <div class="metric" title="Click-to-order rate">
+      <span class="metric-label">CTOR</span>
+      <span id="metric-ctor" class="metric-value">—</span>
+    </div>
+  </div>
+
+  <!-- ─── Tab Navigation ─────────────────────────────── -->
+  <nav id="tab-nav">
+    <button class="tab-btn active" data-tab="bag">Bag</button>
+    <button class="tab-btn" data-tab="log">Log</button>
+    <button class="tab-btn" data-tab="settings">Settings</button>
+  </nav>
+
+  <!-- ─── Tab Content ─────────────────────────────────── -->
+  <main id="tab-content">
+    <!-- Bag Tab — consolidated product list with "Send to Host" action.
+         Replaces the old Flash/Pin tabs (auto-flash and auto-pin removed
+         2026-05-03, see DESIGN.md / commit history). -->
+    <section id="tab-bag" class="tab-panel active">
+      <div class="search-bar">
+        <input type="text" id="bag-search" placeholder="Search products..." autocomplete="off">
+      </div>
+      <div id="bag-product-list" class="product-list">
+        <p class="empty-state">Waiting for LIVE Console connection...</p>
+      </div>
+    </section>
+
+    <!-- Log Tab -->
+    <section id="tab-log" class="tab-panel">
+      <div class="log-controls">
+        <button id="btn-export" class="btn btn-secondary">Export Session JSON</button>
+        <button id="btn-new-session" class="btn btn-secondary">New Session</button>
+      </div>
+      <div class="video-sync" id="video-sync">
+        <label>Video offset (sec):
+          <input type="number" id="video-offset" class="video-sync-input" value="0" step="1">
+          <button id="btn-set-offset" class="btn btn-secondary" style="font-size: 10px; padding: 2px 8px;">Set</button>
+        </label>
+        <p class="settings-hint">If video started before session, enter positive seconds. After = negative.</p>
+      </div>
+      <div id="action-log" class="log-list">
+        <p class="empty-state">Action logging active. Events will appear here.</p>
+      </div>
+    </section>
+
+    <!-- Settings Tab -->
+    <section id="tab-settings" class="tab-panel">
+
+      <!-- Inventory API Connection -->
+      <div class="settings-section">
+        <p class="settings-section-title">Inventory API</p>
+        <input type="text" id="api-url" class="settings-input" placeholder="https://your-server/api/livepilot/session-products">
+        <input type="text" id="api-key" class="settings-input" placeholder="API key (lp_...)">
+        <button id="btn-load-cards" class="btn-prominent" style="margin-top: 4px;">Load Battle Cards</button>
+        <p id="cards-status" class="settings-status"></p>
+      </div>
+
+      <hr class="settings-divider">
+
+      <!-- Host Display Controls -->
+      <div class="settings-section">
+        <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+          <button id="btn-open-host-display" class="btn-prominent" style="flex: 1;">Host v1</button>
+          <button id="btn-open-host-v2" class="btn-prominent" style="flex: 1; background: #1a3a5c; border-color: #60a5fa;">Host v2</button>
+        </div>
+        <div class="msg-input-row">
+          <input type="text" id="operator-msg-input" class="msg-input" placeholder="Send message to host...">
+          <button id="btn-send-operator-msg" class="msg-send-btn">Send</button>
+        </div>
+      </div>
+
+      <hr class="settings-divider">
+
+      <!-- Dissolve Controls (v2 only) -->
+      <div class="settings-section" id="dissolve-section">
+        <p class="settings-section-title">Dissolve Controls (v2)</p>
+        <div class="dissolve-toggle-row">
+          <label class="dissolve-toggle-label">
+            <input type="checkbox" id="auto-dissolve-toggle">
+            <span>Auto-dissolve (speech)</span>
+          </label>
+          <span id="speech-status" class="speech-indicator"></span>
+        </div>
+        <div id="dissolve-transcript" class="dissolve-transcript" style="display:none;">
+          <span class="transcript-label">Hearing:</span>
+          <span id="transcript-text" class="transcript-text">...</span>
+        </div>
+        <div id="dissolve-point-list" class="dissolve-point-list">
+          <p class="settings-hint">Send a product to host to see talking points</p>
+        </div>
+        <div class="dissolve-actions">
+          <button id="btn-undo-dissolve" class="btn btn-secondary" style="flex:1;">Undo (Z)</button>
+          <button id="btn-reset-dissolve" class="btn btn-secondary" style="flex:1;">Reset All (R)</button>
+        </div>
+        <p class="settings-hint" style="margin-top: 4px;">Keys 1-9 to dissolve points. Z = undo, R = reset.</p>
+      </div>
+
+      <hr class="settings-divider">
+
+      <!-- Tools -->
+      <div class="settings-section">
+        <button id="btn-copy-report" class="btn-prominent" style="margin-bottom: 8px;">Copy Full Discovery Report</button>
+        <p class="settings-hint" style="margin-bottom: 12px;">Click the button above, then paste (Ctrl+V) into the Google Doc.</p>
+        <button id="btn-debug" class="btn btn-secondary" style="width: 100%; margin-bottom: 8px;">Run Diagnostics</button>
+        <pre id="debug-output" class="debug-output"></pre>
+      </div>
+    </section>
+  </main>
+
+  <!-- ─── Toast Container (for notifications) ────────── -->
+  <div id="toast-container"></div>
+
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

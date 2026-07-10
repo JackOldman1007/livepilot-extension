@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LivePilot — Host Display v2</title>
+  <link rel="stylesheet" href="host-v2.css">
+</head>
+<body>
+  <!-- ─── Connection Bar ──────────────────────────── -->
+  <header id="header">
+    <div class="header-left">
+      <span class="logo">LivePilot</span>
+      <span id="connection-badge" class="badge disconnected">Not Connected</span>
+    </div>
+    <div class="header-center">
+      <span id="viewer-count" class="metric-pill">Viewers —</span>
+      <span id="session-timer" class="metric-pill">--:--</span>
+    </div>
+    <div class="header-right">
+      <button id="btn-fullscreen" class="icon-btn" title="Toggle fullscreen" aria-label="Toggle fullscreen">&#x26F6;</button>
+    </div>
+  </header>
+
+  <!-- ─── Main Display Area ───────────────────────── -->
+  <main id="main">
+    <!-- Current Product Card -->
+    <section id="product-card" class="card">
+      <div id="product-header">
+        <div id="product-image-wrap">
+          <img id="product-image" src="" alt="Product" style="display:none;">
+          <div id="product-image-placeholder">No Product Selected</div>
+        </div>
+        <div id="product-identity">
+          <h1 id="product-brand">—</h1>
+          <h2 id="product-model">Select a product to begin</h2>
+          <div id="product-details">
+            <span id="product-material" class="detail-tag"></span>
+            <span id="product-color" class="detail-tag"></span>
+            <span id="product-size" class="detail-tag"></span>
+            <span id="product-year" class="detail-tag"></span>
+            <span id="product-condition" class="detail-tag"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pricing Strip -->
+      <div id="pricing-strip">
+        <div class="price-box primary">
+          <div class="price-label">OUR PRICE</div>
+          <div id="price-ours" class="price-value">—</div>
+        </div>
+        <div class="price-box flash">
+          <div class="price-label">FLASH PRICE</div>
+          <div id="price-flash" class="price-value">—</div>
+        </div>
+        <div class="price-box retail">
+          <div class="price-label">RETAIL</div>
+          <div id="price-retail" class="price-value">—</div>
+        </div>
+        <div class="price-box competitor">
+          <div class="price-label">THEREALREAL</div>
+          <div id="price-trr" class="price-value">—</div>
+        </div>
+        <div class="price-box competitor">
+          <div class="price-label">FASHIONPHILE</div>
+          <div id="price-fp" class="price-value">—</div>
+        </div>
+        <div class="price-box savings">
+          <div class="price-label">YOU SAVE</div>
+          <div id="price-savings" class="price-value">—</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Two-Column Layout: Talking Points + Live Feed -->
+    <div id="columns">
+      <!-- Left Column: What to Say (with dissolve support) -->
+      <section id="col-talking" class="card">
+        <div class="section-header">
+          <h3 class="section-title say">SAY THIS</h3>
+          <span id="points-remaining" class="points-counter"></span>
+        </div>
+        <div id="selling-points" class="point-list" data-section="selling_point">
+          <div class="empty-state">Selling points will appear when a product is selected</div>
+        </div>
+
+        <h3 class="section-title story">STORY</h3>
+        <div id="fun-facts" class="point-list" data-section="fun_fact">
+          <div class="empty-state">Fun facts and brand stories</div>
+        </div>
+
+        <div id="celebrity-section" style="display:none;">
+          <h3 class="section-title celebrity">CELEBRITY</h3>
+          <div id="celebrity-points" class="point-list" data-section="celebrity"></div>
+        </div>
+
+        <div id="rarity-section" style="display:none;">
+          <h3 class="section-title rarity">RARITY</h3>
+          <div id="rarity-points" class="point-list" data-section="rarity"></div>
+        </div>
+      </section>
+
+      <!-- Right Column: Live Engagement -->
+      <section id="col-live" class="card">
+        <!-- Operator Message (persistent, top priority) -->
+        <div id="operator-msg-wrap" style="display:none;">
+          <h3 class="section-title operator-title">OPERATOR</h3>
+          <div id="operator-msg" class="operator-message"></div>
+          <button id="btn-dismiss-operator" class="dismiss-btn" aria-label="Dismiss message">&#x2715;</button>
+        </div>
+
+        <!-- Filtered Chat: Purchase Intent Only -->
+        <h3 class="section-title intent">ANSWER THESE</h3>
+        <div id="intent-chat" class="chat-list">
+          <p class="empty-state">Purchase-intent comments will appear here</p>
+        </div>
+
+        <!-- Product Timer + Next Up -->
+        <div id="product-timer-wrap">
+          <div id="product-timer">
+            <span class="timer-label">TIME ON PRODUCT</span>
+            <span id="timer-value" class="timer-value">0:00</span>
+          </div>
+          <div id="next-product">
+            <span class="timer-label">NEXT UP</span>
+            <span id="next-product-name" class="next-name">—</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="host-v2.js"></script>
+</body>
+</html>

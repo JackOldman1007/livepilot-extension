@@ -1,0 +1,562 @@
+/* ═══════════════════════════════════════════════════
+   LivePilot Host Display — Clean Command Center
+   Designed for readability at 4-6 feet (camera distance).
+   Dark theme, large text, calm anchor for overstimulated hosts.
+   Data pops, design recedes. Color only for meaning.
+   ═══════════════════════════════════════════════════ */
+
+/* ─── Design Tokens ───────────────────────────── */
+:root {
+  /* Backgrounds — blue-tinted neutrals, not pure black */
+  --bg: #0b0b0f;
+  --card-bg: #131318;
+  --card-bg-elevated: #18181f;
+  --card-border: #1f1f28;
+
+  /* Text — warm whites, blue-gray secondaries */
+  --text-primary: #ededf0;
+  --text-secondary: #8b8b96;
+  --text-muted: #4e4e5a;
+
+  /* Functional colors — each has ONE meaning */
+  --accent: #fe2c55;               /* TikTok red: critical actions, flash sale fire */
+  --accent-glow: rgba(254, 44, 85, 0.10);
+  --flash-gold: #f0c040;           /* flash price: warm gold */
+  --flash-gold-bg: rgba(240, 192, 64, 0.06);
+  --flash-gold-border: rgba(240, 192, 64, 0.18);
+  --retail-muted: #5a5a66;         /* competitor prices: de-emphasized */
+  --savings-green: #34d399;        /* savings: calm green */
+  --savings-bg: rgba(52, 211, 153, 0.05);
+  --savings-border: rgba(52, 211, 153, 0.14);
+  --operator-blue: #60a5fa;        /* operator comms */
+  --operator-bg: rgba(96, 165, 250, 0.07);
+  --operator-border: rgba(96, 165, 250, 0.25);
+  --intent-orange: #fb923c;        /* purchase intent: warm orange */
+
+  /* Section accents — left-border coding for talking points */
+  --section-say: #60a5fa;
+  --section-story: #a78bfa;
+  --section-celebrity: #f0c040;
+  --section-rarity: #34d399;
+
+  /* Spacing & shape */
+  --radius: 10px;
+  --radius-sm: 6px;
+  --card-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+
+  /* Typography */
+  --font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Header ───────────────────────────────────── */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 20px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--card-border);
+  height: 40px;
+}
+
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-center { display: flex; align-items: center; gap: 16px; }
+.header-right { display: flex; align-items: center; gap: 8px; }
+
+.logo {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.badge.disconnected {
+  background: rgba(254, 44, 85, 0.08);
+  color: #f87171;
+  border: 1px solid rgba(254, 44, 85, 0.15);
+}
+.badge.connected {
+  background: rgba(52, 211, 153, 0.08);
+  color: var(--savings-green);
+  border: 1px solid rgba(52, 211, 153, 0.15);
+}
+
+.metric-pill {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.icon-btn {
+  background: none;
+  border: 1px solid var(--card-border);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 3px 7px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, border-color 0.15s;
+}
+.icon-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+/* ─── Main Layout ──────────────────────────────── */
+#main {
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  box-shadow: var(--card-shadow);
+}
+
+/* ─── Product Card (top) ───────────────────────── */
+#product-header {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+#product-image-wrap {
+  width: 140px;
+  height: 140px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--card-bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--card-border);
+}
+
+#product-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#product-image-placeholder {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 10px;
+}
+
+#product-identity { flex: 1; }
+
+#product-brand {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+#product-model {
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+#product-details {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.detail-tag {
+  font-size: 12px;
+  padding: 3px 10px;
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
+.detail-tag:empty { display: none; }
+
+/* ─── Pricing Strip ────────────────────────────── */
+#pricing-strip {
+  display: grid;
+  /* Hero prices (ours + flash) get more space than comparisons */
+  grid-template-columns: 1.3fr 1.3fr 1fr 1fr 1fr 1.2fr;
+  gap: 6px;
+}
+
+.price-box {
+  text-align: center;
+  padding: 10px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--card-border);
+  transition: border-color 0.2s;
+}
+
+.price-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.price-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.3px;
+}
+
+/* Hero prices — larger, bolder */
+.price-box.primary .price-value {
+  font-size: 26px;
+  color: var(--text-primary);
+}
+.price-box.primary .price-label {
+  color: var(--text-secondary);
+}
+
+.price-box.flash {
+  background: var(--flash-gold-bg);
+  border-color: var(--flash-gold-border);
+}
+.price-box.flash .price-value {
+  font-size: 26px;
+  color: var(--flash-gold);
+}
+.price-box.flash .price-label {
+  color: var(--flash-gold);
+  opacity: 0.8;
+}
+
+/* Competitor prices — smaller, muted */
+.price-box.retail .price-value {
+  font-size: 18px;
+  color: var(--retail-muted);
+  text-decoration: line-through;
+}
+.price-box.competitor .price-value {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+.price-box.competitor .price-label {
+  font-size: 8px;
+}
+
+/* Savings — highlighted but not screaming */
+.price-box.savings {
+  background: var(--savings-bg);
+  border-color: var(--savings-border);
+}
+.price-box.savings .price-value {
+  font-size: 22px;
+  color: var(--savings-green);
+}
+.price-box.savings .price-label {
+  color: var(--savings-green);
+  opacity: 0.8;
+}
+
+/* ─── Two Columns ──────────────────────────────── */
+#columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  /* Fill remaining viewport height */
+  flex: 1;
+  min-height: 0;
+}
+
+#col-talking, #col-live {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+/* ─── Talking Points — Color-Coded Sections ───── */
+
+/* SAY THIS section — blue accent */
+#col-talking > .section-title:nth-of-type(1) {
+  color: var(--section-say);
+}
+#selling-points {
+  border-left: 2px solid var(--section-say);
+  padding-left: 14px;
+  margin-left: 2px;
+}
+
+/* STORY section — purple accent */
+#col-talking > .section-title:nth-of-type(2) {
+  color: var(--section-story);
+}
+#fun-facts {
+  border-left: 2px solid var(--section-story);
+  padding-left: 14px;
+  margin-left: 2px;
+}
+
+/* CELEBRITY section — gold accent */
+#celebrity-section .section-title {
+  color: var(--section-celebrity);
+}
+#celebrity-section {
+  border-left: 2px solid var(--section-celebrity);
+  padding-left: 14px;
+  margin-left: 2px;
+  margin-bottom: 14px;
+}
+
+/* RARITY section — green accent */
+#rarity-section .section-title {
+  color: var(--section-rarity);
+}
+#rarity-section {
+  border-left: 2px solid var(--section-rarity);
+  padding-left: 14px;
+  margin-left: 2px;
+  margin-bottom: 14px;
+}
+
+.point-list {
+  list-style: none;
+  margin-bottom: 18px;
+}
+
+.point-list li {
+  font-size: 19px;
+  line-height: 1.45;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.point-list li:last-child { border-bottom: none; }
+
+.point-list li.empty-state {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.celebrity-line, .rarity-line {
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+/* ─── Operator Message ─────────────────────────── */
+#operator-msg-wrap {
+  background: var(--operator-bg);
+  border: 1px solid var(--operator-border);
+  border-left: 3px solid var(--operator-blue);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  position: relative;
+  animation: fade-in 0.3s ease;
+}
+
+.operator-title { color: var(--operator-blue) !important; }
+
+.operator-message {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--operator-blue);
+  line-height: 1.3;
+}
+
+.dismiss-btn {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--operator-blue);
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+.dismiss-btn:hover { opacity: 1; }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Intent Chat ──────────────────────────────── */
+.chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-bottom: 14px;
+}
+
+.chat-item {
+  display: flex;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--card-bg-elevated);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--intent-orange);
+  animation: slide-in 0.25s ease;
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.chat-name {
+  font-weight: 700;
+  color: var(--intent-orange);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.chat-text {
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.chat-list .empty-state {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 12px 0;
+}
+
+/* ─── Product Timer ────────────────────────────── */
+#product-timer-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+#product-timer, #next-product {
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  text-align: center;
+}
+
+.timer-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.timer-value {
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+/* Timer warning states — escalating urgency */
+.timer-value.warning {
+  color: var(--intent-orange);
+}
+.timer-value.overtime {
+  color: var(--accent);
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.next-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* ─── Empty States ────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 20px 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ─── Scrollbar ────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a34; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3a46; }
+
+/* ─── Responsive: smaller screens ──────────────── */
+@media (max-width: 900px) {
+  #columns { grid-template-columns: 1fr; }
+  #pricing-strip { grid-template-columns: repeat(3, 1fr); }
+  #product-brand { font-size: 28px; }
+  #product-model { font-size: 18px; }
+  .point-list li { font-size: 17px; }
+  .price-box.primary .price-value,
+  .price-box.flash .price-value { font-size: 22px; }
+  #product-image-wrap { width: 110px; height: 110px; }
+}
+
+/* ─── Fullscreen mode ──────────────────────────── */
+body.fullscreen #header { display: none; }
+body.fullscreen #main { padding-top: 8px; }

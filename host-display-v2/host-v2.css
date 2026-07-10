@@ -1,0 +1,415 @@
+/* ═══════════════════════════════════════════════════
+   LivePilot Host Display v2 — TV Battle Card
+   DESIGN SYSTEM: 3+1 hierarchy
+   3 SIZE levels (hero / body / label) + semantic COLOR layer
+   Size = priority. Color = data type. Never both gray.
+   Optimized for 4-8 foot viewing on horizontal TV.
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  --bg: #0a0a0e;
+  --card-bg: #111116;
+  --card-bg-elevated: #1a1a22;
+  --card-border: #28283a;
+
+  /* 3-LEVEL TEXT HIERARCHY (size differentiates, not opacity) */
+  --text-hero: #ededf0;       /* Level 1: brand name, hero price — near-white, NOT pure white */
+  --text-body: #ededf0;       /* Level 2: selling points — same color, smaller size */
+  --text-label: #a0a0b4;     /* Level 3: labels, captions — dimmer, heavier weight compensates */
+
+  /* SEMANTIC COLORS — each means one thing */
+  --color-money: #ffd050;     /* gold = price/financial */
+  --color-positive: #4ade80;  /* green = savings, good, covered */
+  --color-attention: #ffaa55; /* orange = viewer intent, needs response */
+  --color-critical: #fe2c55;  /* red = urgent, overtime */
+  --color-info: #78b8ff;      /* blue = operator comms, guidance */
+
+  /* SECTION ACCENTS — left border + subtle background tint */
+  --section-say: #78b8ff;
+  --section-say-bg: rgba(120, 184, 255, 0.04);
+  --section-story: #c89dff;
+  --section-story-bg: rgba(200, 157, 255, 0.03);
+  --section-celebrity: #ffd050;
+  --section-celebrity-bg: rgba(255, 208, 80, 0.03);
+  --section-rarity: #4ade80;
+  --section-rarity-bg: rgba(74, 222, 128, 0.04);
+
+  /* Dissolve */
+  --dissolve-done: #4ade80;
+  --dissolve-done-bg: rgba(74, 222, 128, 0.06);
+  --dissolve-suggest-bg: rgba(255, 208, 80, 0.08);
+  --dissolve-suggest-border: rgba(255, 208, 80, 0.35);
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text-body);
+  height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Header ─────────────────────────────────── */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 24px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--card-border);
+  height: 36px;
+  flex-shrink: 0;
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-center { display: flex; align-items: center; gap: 20px; }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.logo { font-weight: 800; font-size: 14px; color: var(--color-critical); }
+
+.badge { font-size: 11px; padding: 2px 10px; border-radius: 10px; font-weight: 700; }
+.badge.disconnected { background: rgba(254,44,85,0.10); color: #ff6b8a; border: 1px solid rgba(254,44,85,0.20); }
+.badge.connected { background: rgba(74,222,128,0.10); color: var(--color-positive); border: 1px solid rgba(74,222,128,0.20); }
+
+.metric-pill { font-size: 14px; color: var(--text-body); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.icon-btn {
+  background: none; border: 1px solid var(--card-border); color: var(--text-label);
+  cursor: pointer; font-size: 16px; padding: 3px 8px; border-radius: var(--radius-sm);
+}
+
+/* ═══════════════════════════════════════════════════
+   HORIZONTAL TV LAYOUT — 2 or 3 columns
+   Left: Product identity + pricing (compact)
+   Center: Talking points (main — widest)
+   Right: Live feed (ONLY when there's content)
+   ═══════════════════════════════════════════════════ */
+#main {
+  display: grid;
+  grid-template-columns: 240px 1fr 220px;
+  grid-template-rows: 1fr;
+  gap: 6px;
+  padding: 6px 10px;
+  height: calc(100vh - 36px);
+  overflow: hidden;
+}
+
+/* When right column is empty, hide it — center column takes full width */
+#col-live.empty { display: none; }
+#main:has(#col-live.empty) { grid-template-columns: 240px 1fr; }
+
+#product-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+#columns { display: contents; }
+
+#col-talking {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#col-live {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  gap: 8px;
+}
+
+.card { background: none; border: none; padding: 0; box-shadow: none; }
+
+/* ─── Product Card — LEFT COLUMN ─────────────── */
+#product-header { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+
+#product-image-wrap {
+  width: 100%; height: 160px;
+  border-radius: var(--radius-sm); overflow: hidden;
+  background: var(--card-bg-elevated);
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--card-border);
+}
+#product-image { width: 100%; height: 100%; object-fit: cover; }
+#product-image-placeholder { font-size: 14px; color: var(--text-label); text-align: center; }
+
+/* LEVEL 1: Hero — brand name */
+#product-brand {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--text-hero);
+}
+
+/* LEVEL 2: Body — model name */
+#product-model {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-body);
+  margin-top: 4px;
+}
+
+/* Detail tags — LEVEL 3 but visible */
+#product-details { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+.detail-tag {
+  font-size: 13px; padding: 3px 10px;
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  color: var(--text-body);
+  font-weight: 600;
+}
+.detail-tag:empty { display: none; }
+
+/* ─── Pricing — SEMANTIC COLOR ───────────────── */
+#pricing-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+.price-box {
+  text-align: center; padding: 10px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--card-border);
+}
+
+/* LEVEL 3: Labels — small but readable */
+.price-label {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--text-label);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+.price-value { font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* Hero prices — LEVEL 1 size + semantic color */
+.price-box.primary .price-value { font-size: 28px; color: var(--text-hero); }
+.price-box.primary .price-label { color: var(--text-body); }
+
+.price-box.flash { background: rgba(255,208,80,0.06); border-color: rgba(255,208,80,0.20); }
+.price-box.flash .price-value { font-size: 28px; color: var(--color-money); }
+.price-box.flash .price-label { color: var(--color-money); }
+
+.price-box.retail .price-value { font-size: 16px; color: var(--text-label); text-decoration: line-through; }
+.price-box.competitor .price-value { font-size: 16px; color: var(--text-label); }
+.price-box.competitor .price-label { font-size: 10px; }
+.price-box.competitor { opacity: 0.65; }
+
+.price-box.savings { background: rgba(74,222,128,0.06); border-color: rgba(74,222,128,0.18); }
+.price-box.savings .price-value { font-size: 24px; color: var(--color-positive); }
+.price-box.savings .price-label { color: var(--color-positive); }
+
+/* ─── Section Headers — LEVEL 3 + semantic color ── */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+
+.section-title {
+  font-size: 13px; font-weight: 800;
+  letter-spacing: 1.5px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.section-header .section-title { margin-bottom: 0; }
+
+/* Section titles use their semantic color — instantly scannable */
+.section-title.say { color: var(--section-say); }
+.section-title.story { color: var(--section-story); font-size: 12px; margin-bottom: 6px; }
+.section-title.celebrity { color: var(--section-celebrity); font-size: 12px; margin-bottom: 6px; }
+.section-title.rarity { color: var(--section-rarity); font-size: 12px; margin-bottom: 6px; }
+.section-title.intent { color: var(--color-attention); }
+
+.points-counter { font-size: 13px; color: var(--text-label); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ═══════════════════════════════════════════════════
+   TALKING POINTS — LEVEL 2 body text with section tints
+   ═══════════════════════════════════════════════════ */
+.point-list { margin-bottom: 10px; }
+
+.point-item {
+  position: relative;
+  padding: 10px 16px;
+  margin-bottom: 5px;
+  border-radius: var(--radius-sm);
+  font-size: 22px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--text-body);
+  border-left: 4px solid transparent;
+
+  transition:
+    opacity 0.6s ease, max-height 0.5s ease,
+    padding-top 0.5s ease, padding-bottom 0.5s ease,
+    margin-bottom 0.5s ease, background-color 0.3s ease,
+    border-left-color 0.3s ease, border-left-width 0.3s ease,
+    transform 0.4s ease;
+  max-height: 180px;
+  overflow: hidden;
+}
+
+/* Section tinted backgrounds — color = data type */
+[data-section="selling_point"] .point-item {
+  border-left-color: var(--section-say);
+  background: var(--section-say-bg);
+}
+[data-section="fun_fact"] .point-item {
+  border-left-color: var(--section-story);
+  background: var(--section-story-bg);
+}
+[data-section="celebrity"] .point-item {
+  border-left-color: var(--section-celebrity);
+  background: var(--section-celebrity-bg);
+}
+[data-section="rarity"] .point-item {
+  border-left-color: var(--section-rarity);
+  background: var(--section-rarity-bg);
+}
+
+/* ─── DISSOLVE STATES ────────────────────────── */
+.point-item[data-state="suggested"] {
+  background: var(--dissolve-suggest-bg);
+  border-left-color: var(--color-money) !important;
+  box-shadow: inset 0 0 0 1px var(--dissolve-suggest-border);
+}
+
+.point-item[data-state="dimmed"] {
+  opacity: 0.15;
+  border-left-color: var(--dissolve-done) !important;
+  background: var(--dissolve-done-bg);
+  transform: translateX(4px);
+}
+.point-item[data-state="dimmed"]::before {
+  content: "\2713"; position: absolute; right: 14px; top: 50%;
+  transform: translateY(-50%); color: var(--dissolve-done);
+  font-size: 20px; font-weight: 800; opacity: 0.5;
+}
+
+.point-item[data-state="collapsed"] {
+  opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0;
+  margin-bottom: 0; border-left-width: 0; pointer-events: none;
+}
+
+.point-item[data-state="restoring"] { animation: restore-pop 0.5s ease forwards; }
+@keyframes restore-pop {
+  0% { opacity: 0; max-height: 0; padding: 0 16px; margin-bottom: 0; transform: translateX(-10px); }
+  50% { opacity: 0.5; max-height: 180px; }
+  100% { opacity: 1; max-height: 180px; padding: 10px 16px; margin-bottom: 5px; transform: translateX(0); }
+}
+
+/* Promotion: remaining items grow when siblings dissolve */
+.point-list.has-dissolved .point-item[data-state="visible"] {
+  padding: 12px 16px; margin-bottom: 8px; font-size: 24px;
+}
+
+/* ─── Secondary sections — readable but clearly secondary ── */
+.point-list .empty-state { font-size: 15px; color: var(--text-label); padding: 12px 0; text-align: center; }
+
+#celebrity-section, #rarity-section { margin-bottom: 8px; }
+#celebrity-section .point-item { font-size: 20px; font-weight: 500; }
+#rarity-section .point-item { font-size: 20px; font-weight: 500; }
+
+/* ─── Operator Message — ATTENTION color ─────── */
+#operator-msg-wrap {
+  background: rgba(120,184,255,0.08);
+  border: 1px solid rgba(120,184,255,0.25);
+  border-left: 4px solid var(--color-info);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  position: relative;
+  animation: fade-in 0.3s ease;
+  flex-shrink: 0;
+}
+.operator-title { color: var(--color-info) !important; }
+.operator-message { font-size: 22px; font-weight: 800; color: var(--color-info); line-height: 1.3; }
+.dismiss-btn {
+  position: absolute; top: 8px; right: 14px;
+  background: none; border: none; color: var(--color-info);
+  font-size: 18px; cursor: pointer; opacity: 0.4;
+}
+.dismiss-btn:hover { opacity: 1; }
+@keyframes fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ─── Chat — ATTENTION color ─────────────────── */
+.chat-list {
+  display: flex; flex-direction: column; gap: 5px;
+  flex: 1; min-height: 60px; overflow-y: auto; overflow-x: hidden;
+}
+.chat-item {
+  display: flex; gap: 10px; padding: 10px 14px;
+  background: var(--card-bg-elevated);
+  border-radius: var(--radius-sm);
+  border-left: 4px solid var(--color-attention);
+  animation: slide-in 0.25s ease;
+}
+@keyframes slide-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: translateX(0); } }
+.chat-name { font-weight: 800; color: var(--color-attention); font-size: 16px; white-space: nowrap; }
+.chat-text { color: var(--text-body); font-size: 16px; line-height: 1.3; }
+.chat-list .empty-state { font-size: 13px; color: var(--text-label); padding: 8px 0; }
+
+/* ─── Timer ──────────────────────────────────── */
+#product-timer-wrap {
+  display: grid; grid-template-columns: 1fr; gap: 6px;
+  margin-top: auto; flex-shrink: 0;
+}
+#product-timer, #next-product {
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px; text-align: center;
+}
+#next-product { display: none; }
+
+.timer-label {
+  display: block; font-size: 11px; font-weight: 700;
+  color: var(--text-label); letter-spacing: 1px;
+  text-transform: uppercase; margin-bottom: 3px;
+}
+.timer-value {
+  font-size: 32px; font-weight: 900;
+  font-variant-numeric: tabular-nums; color: var(--text-hero);
+}
+.timer-value.warning { color: var(--color-attention); }
+.timer-value.overtime { color: var(--color-critical); animation: pulse-subtle 2s ease-in-out infinite; }
+@keyframes pulse-subtle { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+.next-name { font-size: 16px; font-weight: 700; color: var(--text-body); }
+
+/* ─── Utility ────────────────────────────────── */
+.empty-state { text-align: center; padding: 20px 12px; color: var(--text-label); font-size: 14px; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a38; border-radius: 3px; }
+
+/* ─── Responsive ─────────────────────────────── */
+@media (max-width: 1000px) {
+  #main { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; overflow-y: auto; height: auto; }
+  #product-header { flex-direction: row; }
+  #product-image-wrap { width: 100px; height: 100px; }
+  #pricing-strip { grid-template-columns: repeat(3, 1fr); }
+  #product-brand { font-size: 24px; }
+  .point-item { font-size: 18px; }
+}
+
+body.fullscreen #header { display: none; }
+body.fullscreen #main { height: 100vh; padding: 6px 10px; }
