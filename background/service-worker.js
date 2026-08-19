@@ -18,20 +18,65 @@ import { Logger } from '../lib/logger.js';
 const eventBus = new EventBus();
 const logger = new Logger(eventBus);
 
-// ─── LivePilot v1 Ingest (extension → inventory_system stub) ─────
-// LAN-only ingest of chat events for the spike. URL is overridable
-// via chrome.storage key `livepilot_v1_base` (set from Settings tab).
-// Default targets the inventory_system dev port (27151) per .ports.md.
-const LIVEPILOT_V1_DEFAULT_BASE = 'http://localhost:27151/api/livepilot/v1';
+// ─── LivePilot v1 Ingest (extension → inventory_system) ──────────
+// Chat + viewer-activity ingest. Everything the Inventory system's Request
+// List auto-collects (FEAT-0124/0125) arrives through here, so if this is
+// pointed at a dead host the Request List silently stays empty during a
+// live — which is exactly what happened until 2026-08-19, when the default
+// still targeted the spike-era dev port 27151.
+//
+// Base URL is overridable via chrome.storage key `livepilot_v1_base` (e.g.
+// http://localhost:27151/api/livepilot/v1 for local testing against a dev
+// server); default is production.
+const LIVEPILOT_V1_DEFAULT_BASE = 'https://patina-luxe.com/api/livepilot/v1';
 let livepilotV1Base = LIVEPILOT_V1_DEFAULT_BASE;
 let liveSessionId = null;          // integer session_id returned by POST /sessions
 let livePilotV1Ready = false;      // true once we've successfully opened a v1 session
 
-// Hydrate v1 base from storage on cold start. Storage may be missing
-// — that's fine, we keep the default.
+// Shared ingest token. Now that the default base is a public host, the server
+// requires `Authorization: Bearer <token>` on these routes. There is NO
+// default and none may be added: this file is mirrored to a PUBLIC repo, so
+// a hardcoded secret would be a published secret. The operator sets it once
+// per machine — see docs/livepilot-v1-activation.md in the Inventory repo.
+let livepilotV1Token = '';
+
+// Hydrate v1 base + token from storage on cold start. Storage may be missing
+// — for the base that's fine (we keep the default); for the token it is not,
+// and postChatEventsV1 says so loudly rather than failing silently.
 StorageAdapter.get('livepilot_v1_base').then((v) => {
   if (typeof v === 'string' && v.startsWith('http')) livepilotV1Base = v;
 }).catch(() => {});
+StorageAdapter.get('livepilot_v1_token').then((v) => {
+  if (typeof v === 'string' && v.trim()) livepilotV1Token = v.trim();
+}).catch(() => {});
+
+// Keep both live if the operator sets them while the worker is already warm.
+chrome.storage?.onChanged?.addListener((changes, area) => {
+  if (area !== 'local' && area !== 'sync') return;
+  if (changes.livepilot_v1_base?.newValue) {
+    const v = changes.livepilot_v1_base.newValue;
+    if (typeof v === 'string' && v.startsWith('http')) {
+      livepilotV1Base = v;
+      livePilotV1Ready = false;   // re-open the session against the new host
+      liveSessionId = null;
+    }
+  }
+  if ('livepilot_v1_token' in changes) {
+    const v = changes.livepilot_v1_token.newValue;
+    livepilotV1Token = typeof v === 'string' ? v.trim() : '';
+    livePilotV1Ready = false;
+    liveSessionId = null;
+  }
+});
+
+// Headers for every v1 call. Omitting Authorization entirely when unset
+// keeps the server's 401 unambiguous ("no token") rather than sending
+// "Bearer " and looking like a malformed one.
+function livepilotV1Headers() {
+  const headers = { 'Content-Type': 'application/json' };
+  if (livepilotV1Token) headers.Authorization = `Bearer ${livepilotV1Token}`;
+  return headers;
+}
 
 // ─── Inventory spotlight (auto-pin, BUG-0095) ────────────────────
 // The product-dashboard content script polls this through the SW because
@@ -50,13 +95,24 @@ async function openLivePilotV1Session() {
   try {
     const resp = await fetch(`${livepilotV1Base}/sessions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: livepilotV1Headers(),
       body: JSON.stringify({
         source: 'own',
         title: `LivePilot session ${new Date().toISOString().slice(0, 16)}`,
         started_at: new Date().toISOString(),
       }),
     });
+    if (resp.status === 401 || resp.status === 503) {
+      // The single most likely cause of "the Request List stayed empty" —
+      // name it explicitly instead of leaving a bare status code.
+      throw new Error(
+        `POST /sessions returned ${resp.status}. ` +
+        (livepilotV1Token
+          ? 'The ingest token was rejected by the server (or the server has none configured).'
+          : 'No ingest token is set on this machine — run: ' +
+            "chrome.storage.local.set({ livepilot_v1_token: '<token>' })")
+      );
+    }
     if (!resp.ok) throw new Error(`POST /sessions returned ${resp.status}`);
     const body = await resp.json();
     liveSessionId = body.data?.session_id ?? body.session_id;  // tolerate envelope variance during spike
@@ -84,7 +140,7 @@ async function postChatEventsV1(events) {
   try {
     const resp = await fetch(`${livepilotV1Base}/chat-events`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: livepilotV1Headers(),
       body: JSON.stringify({ source: 'dom', events: stamped }),
     });
     if (!resp.ok) throw new Error(`POST /chat-events returned ${resp.status}`);
@@ -689,6 +745,12 @@ async function handleMessage(message, sender) {
         'flash_template',
         'alert_thresholds',
         'selector_overrides',
+        // panel.js has always read livepilot_api to repopulate the Inventory
+        // API fields, but it was never in this list, so those inputs came up
+        // blank every time. Added alongside the v1 ingest keys.
+        'livepilot_api',
+        'livepilot_v1_base',
+        'livepilot_v1_token',
       ]);
       return { success: true, data };
     }

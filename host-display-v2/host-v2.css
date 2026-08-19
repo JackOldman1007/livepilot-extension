@@ -92,7 +92,10 @@ body {
    ═══════════════════════════════════════════════════ */
 #main {
   display: grid;
-  grid-template-columns: 240px 1fr 220px;
+  /* FEAT-0120/0121/0123: 240/220 predated the clock, the market-reference
+     list and wrapping chat. On a 1080p+ host screen the centre column still
+     clears ~1300px at these widths. */
+  grid-template-columns: 300px 1fr 300px;
   grid-template-rows: 1fr;
   gap: 6px;
   padding: 6px 10px;
@@ -102,7 +105,7 @@ body {
 
 /* When right column is empty, hide it — center column takes full width */
 #col-live.empty { display: none; }
-#main:has(#col-live.empty) { grid-template-columns: 240px 1fr; }
+#main:has(#col-live.empty) { grid-template-columns: 300px 1fr; }
 
 #product-card {
   background: var(--card-bg);
@@ -141,6 +144,46 @@ body {
 }
 
 .card { background: none; border: none; padding: 0; box-shadow: none; }
+
+/* ─── FEAT-0120: Live status (clock + viewers) ────
+   Lives in the left column precisely because body.fullscreen hides #header.
+   Tabular numerals so the digits don't jitter every second. */
+#live-status {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--card-border);
+  flex-shrink: 0;
+}
+.live-stat-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  color: var(--text-label);
+}
+#live-status .live-stat:first-child .live-stat-label { color: var(--color-critical); }
+.live-clock {
+  font-size: 44px;
+  line-height: 1.02;
+  font-weight: 800;
+  color: var(--text-hero);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.live-viewers {
+  font-size: 22px;
+  line-height: 1.1;
+  font-weight: 800;
+  color: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+/* Fullscreen is the on-camera case — push the clock up again. */
+body.fullscreen .live-clock { font-size: 56px; }
+body.fullscreen .live-viewers { font-size: 26px; }
 
 /* ─── Product Card — LEFT COLUMN ─────────────── */
 #product-header { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
@@ -186,7 +229,47 @@ body {
 .detail-tag:empty { display: none; }
 
 /* ─── Pricing — SEMANTIC COLOR ───────────────── */
-#pricing-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+#pricing-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex-shrink: 0; }
+
+/* FEAT-0121 — third-party comps, deliberately quieter than the quote prices:
+   the host should be able to glance at them, not read them out. */
+#market-refs {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--card-border);
+  flex-shrink: 0;
+}
+.market-refs-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  color: var(--text-label);
+  margin-bottom: 6px;
+}
+.market-ref {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(255,255,255,0.05);
+}
+.market-ref:last-of-type { border-bottom: none; }
+.market-ref-label { font-size: 13px; color: var(--text-label); }
+.market-ref-value {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* The resale range is a band rather than one seller's asking price, so it
+   gets the accent — it is the honest "what is this worth" answer. */
+#ref-resale .market-ref-value { color: var(--color-positive); }
+#ref-resale .market-ref-label { color: var(--text-body); font-weight: 700; }
+.market-refs-empty { font-size: 12px; color: var(--text-label); opacity: 0.7; padding: 4px 0; }
+body.fullscreen .market-ref-label { font-size: 14px; }
+body.fullscreen .market-ref-value { font-size: 18px; }
 
 .price-box {
   text-align: center; padding: 10px 6px;
@@ -206,20 +289,20 @@ body {
 .price-value { font-weight: 800; font-variant-numeric: tabular-nums; }
 
 /* Hero prices — LEVEL 1 size + semantic color */
-.price-box.primary .price-value { font-size: 28px; color: var(--text-hero); }
+.price-box.primary .price-value { font-size: 38px; color: var(--text-hero); line-height: 1.05; }
 .price-box.primary .price-label { color: var(--text-body); }
 
 .price-box.flash { background: rgba(255,208,80,0.06); border-color: rgba(255,208,80,0.20); }
-.price-box.flash .price-value { font-size: 28px; color: var(--color-money); }
+.price-box.flash .price-value { font-size: 38px; color: var(--color-money); line-height: 1.05; }
 .price-box.flash .price-label { color: var(--color-money); }
 
-.price-box.retail .price-value { font-size: 16px; color: var(--text-label); text-decoration: line-through; }
+.price-box.retail .price-value { font-size: 20px; color: var(--text-label); text-decoration: line-through; }
 .price-box.competitor .price-value { font-size: 16px; color: var(--text-label); }
 .price-box.competitor .price-label { font-size: 10px; }
 .price-box.competitor { opacity: 0.65; }
 
 .price-box.savings { background: rgba(74,222,128,0.06); border-color: rgba(74,222,128,0.18); }
-.price-box.savings .price-value { font-size: 24px; color: var(--color-positive); }
+.price-box.savings .price-value { font-size: 26px; color: var(--color-positive); line-height: 1.05; }
 .price-box.savings .price-label { color: var(--color-positive); }
 
 /* ─── Section Headers — LEVEL 3 + semantic color ── */
@@ -355,16 +438,26 @@ body {
   display: flex; flex-direction: column; gap: 5px;
   flex: 1; min-height: 60px; overflow-y: auto; overflow-x: hidden;
 }
+/* FEAT-0123 — was `display:flex` with a nowrap name: "@collector_ray" ate
+   ~130px of a 190px column, leaving ~50px for the message, which then
+   overflowed into `overflow-x:hidden` and got clipped mid-word. Stacking the
+   name above the text fixes it structurally instead of shrinking the font. */
 .chat-item {
-  display: flex; gap: 10px; padding: 10px 14px;
+  display: flex; flex-direction: column; gap: 2px; padding: 10px 14px;
   background: var(--card-bg-elevated);
   border-radius: var(--radius-sm);
   border-left: 4px solid var(--color-attention);
   animation: slide-in 0.25s ease;
+  min-width: 0;
 }
 @keyframes slide-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: translateX(0); } }
-.chat-name { font-weight: 800; color: var(--color-attention); font-size: 16px; white-space: nowrap; }
-.chat-text { color: var(--text-body); font-size: 16px; line-height: 1.3; }
+/* Handles have no spaces, so `overflow-wrap: anywhere` is what actually
+   prevents the clip — `break-word` alone will not break an unbroken token. */
+.chat-name {
+  font-weight: 800; color: var(--color-attention); font-size: 15px;
+  overflow-wrap: anywhere; min-width: 0;
+}
+.chat-text { color: var(--text-body); font-size: 16px; line-height: 1.35; overflow-wrap: anywhere; min-width: 0; }
 .chat-list .empty-state { font-size: 13px; color: var(--text-label); padding: 8px 0; }
 
 /* ─── Timer ──────────────────────────────────── */
@@ -406,10 +499,65 @@ body {
   #main { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; overflow-y: auto; height: auto; }
   #product-header { flex-direction: row; }
   #product-image-wrap { width: 100px; height: 100px; }
-  #pricing-strip { grid-template-columns: repeat(3, 1fr); }
+  /* 4 quote boxes now, not 6 — 2x2 keeps OUR/FLASH paired on one row rather
+     than orphaning the fourth box on a 3-column grid. */
+  #pricing-strip { grid-template-columns: repeat(2, 1fr); }
+  /* Below the breakpoint the columns stack, so the clock no longer needs to
+     compete with the product image for the left column's width. */
+  .live-clock { font-size: 36px; }
+  .live-viewers { font-size: 20px; }
+  .activity-list { max-height: none; }
   #product-brand { font-size: 24px; }
   .point-item { font-size: 18px; }
 }
 
 body.fullscreen #header { display: none; }
 body.fullscreen #main { height: 100vh; padding: 6px 10px; }
+
+
+/* ─── FEAT-0120: fullscreen price hierarchy ──────
+   Fullscreen is the on-camera case and the host reads these from further
+   away than a desk monitor. */
+body.fullscreen .price-box.primary .price-value,
+body.fullscreen .price-box.flash .price-value { font-size: 46px; }
+body.fullscreen .price-box.savings .price-value { font-size: 30px; }
+body.fullscreen .price-box.retail .price-value { font-size: 22px; }
+
+/* ─── FEAT-0123: Live activity feed ──────────────
+   Buys, VIP joins and "interested in No.X" signals from state.activityFeed. */
+#activity-section { display: flex; flex-direction: column; min-height: 0; flex-shrink: 0; }
+#activity-section.empty { display: none; }
+.section-title.activity { color: var(--color-positive); }
+.activity-list {
+  display: flex; flex-direction: column; gap: 4px;
+  overflow-y: auto; overflow-x: hidden; min-height: 0; max-height: 34vh;
+}
+.activity-item {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 6px 10px;
+  background: var(--card-bg-elevated);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--card-border);
+  min-width: 0;
+}
+.activity-item .activity-icon {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
+  flex-shrink: 0; min-width: 34px;
+}
+.activity-item .activity-text {
+  font-size: 14px; color: var(--text-body); line-height: 1.3;
+  overflow-wrap: anywhere; min-width: 0;
+}
+.activity-item .activity-user { font-weight: 800; color: var(--text-hero); }
+.activity-item .activity-time {
+  margin-left: auto; font-size: 11px; color: var(--text-label);
+  font-variant-numeric: tabular-nums; flex-shrink: 0;
+}
+/* Buys are the one thing the host must react to on air. */
+.activity-item.purchase { border-left-color: var(--color-positive); background: rgba(74,222,128,0.07); }
+.activity-item.join     { border-left-color: var(--operator-blue, #60a5fa); }
+.activity-item.vip-join { border-left-color: var(--color-money); background: rgba(255,208,80,0.06); }
+.activity-item.cart     { border-left-color: var(--color-positive); background: rgba(16,185,129,0.07); }
+.activity-item.interest { border-left-color: var(--color-attention); }
+.activity-item.view     { opacity: 0.7; }
+body.fullscreen .activity-item .activity-text { font-size: 15px; }

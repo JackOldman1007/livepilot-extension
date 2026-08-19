@@ -298,13 +298,49 @@ const $apiKey = document.getElementById('api-key');
 const $loadCards = document.getElementById('btn-load-cards');
 const $cardsStatus = document.getElementById('cards-status');
 
+// ─── Live Chat Ingest token ─────────────────────────────────────
+// Without this the extension can still run the live, but every chat batch is
+// rejected 401 and the Request List (FEAT-0124/0125) stays empty. Kept out of
+// the source on purpose — src/ is mirrored to a PUBLIC repo, so the token is
+// entered per machine. See docs/livepilot-v1-activation.md (Inventory repo).
+const $ingestToken = document.getElementById('ingest-token');
+const $saveIngest = document.getElementById('btn-save-ingest');
+const $ingestStatus = document.getElementById('ingest-status');
+
 // Load saved API config
 (async () => {
   const saved = await sendToServiceWorker('get_settings');
   const api = saved?.data?.livepilot_api;
   if (api?.apiUrl && $apiUrl) $apiUrl.value = api.apiUrl;
   if (api?.apiKey && $apiKey) $apiKey.value = api.apiKey;
+
+  const ingest = saved?.data?.livepilot_v1_token;
+  if (ingest && $ingestToken) {
+    $ingestToken.value = ingest;
+    if ($ingestStatus) {
+      $ingestStatus.textContent = 'Token set on this machine';
+      $ingestStatus.style.color = '#059669';
+    }
+  }
 })();
+
+if ($saveIngest) {
+  $saveIngest.addEventListener('click', async () => {
+    const token = $ingestToken?.value.trim() || '';
+    // Saving an empty value is a legitimate way to clear a bad token, so it is
+    // allowed — just say which of the two things happened.
+    const resp = await sendToServiceWorker('save_settings', { livepilot_v1_token: token });
+    if (resp?.success) {
+      $ingestStatus.textContent = token ? 'Token saved' : 'Token cleared — chat ingest will be rejected';
+      $ingestStatus.style.color = token ? '#059669' : '#f59e0b';
+      showToast(token ? 'Ingest token saved' : 'Ingest token cleared', token ? 'success' : 'warning');
+    } else {
+      $ingestStatus.textContent = `Error: ${resp?.error || 'save failed'}`;
+      $ingestStatus.style.color = '#ef4444';
+      showToast('Failed to save ingest token', 'error');
+    }
+  });
+}
 
 if ($loadCards) {
   $loadCards.addEventListener('click', async () => {
