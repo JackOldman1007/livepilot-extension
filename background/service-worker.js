@@ -424,6 +424,27 @@ async function handleMessage(message, sender) {
       }
     }
 
+    // ─── Auto-pin outcome → desktop notification (BUG-0095) ──
+    // The auto-pin banner renders in the TikTok dashboard tab, which is
+    // backgrounded during a live, so its outcomes were invisible in practice.
+    // A notification reaches the operator whatever window has focus.
+    // Best-effort by design: a failed notification must never surface as an
+    // error in the content script's pin flow.
+    case 'autopin_notify': {
+      try {
+        await chrome.notifications.create({
+          type: 'basic',
+          iconUrl: chrome.runtime.getURL('assets/icons/icon128.png'),
+          title: String(payload?.title || 'LivePilot auto-pin'),
+          message: String(payload?.message || ''),
+          priority: 2,
+        });
+      } catch (err) {
+        console.warn('[LivePilot SW] autopin notification failed:', err?.message || err);
+      }
+      return { success: true };
+    }
+
     // ─── Host Display → Service Worker ──────────────────────
     case 'host_display_ready': {
       const tabId = sender.tab?.id;

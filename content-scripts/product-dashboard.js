@@ -20,7 +20,14 @@
  * SAFETY:
  * - Never retries a failed step silently — every failure lands in the
  *   banner with the step name so the operator can act manually.
- * - Each spotlight id is attempted ONCE (manual "Retry" re-arms it).
+ * - Each spotlight PING is attempted ONCE, keyed on live_spotlights.id.
+ *   Re-scanning the same bag is a NEW ping and DOES re-arm auto-pin (that is
+ *   the operator's natural retry). Repeats inside RESCAN_DEBOUNCE_MS are
+ *   dropped as scanner double-fire. Before 2026-08-19 the endpoint sent no
+ *   id, so this key collapsed onto the bag code and every re-scan was a
+ *   permanent silent no-op — the core of BUG-0095.
+ * - Terminal outcomes also fire a desktop notification, because the banner
+ *   lives in a tab the operator is not watching during a live.
  * - All selectors live in lib/selectors.js (productDashboard group).
  *
  * Loaded as a classic script after selectors.js + dom-adapter.js.
@@ -35,10 +42,23 @@
 
   const POLL_MS = 2000;
   const FIND_TIMEOUT_MS = 8000;
+  // A scanner gun can fire the same QR twice in ~1s (observed in prod:
+  // S014260526036 pinged twice, 1 second apart). A DELIBERATE re-scan -- the
+  // operator retrying because nothing visibly happened -- was never closer
+  // than 11s in the field data. 5s separates the two cleanly: swallow the
+  // gun's stutter, honour the human's retry.
+  const RESCAN_DEBOUNCE_MS = 5000;
 
   let lastHandledSpotlightId = null;
+  // Anchored to the last ACCEPTED attempt and never extended by a debounced
+  // repeat -- otherwise a stuttering gun would hold the window open forever.
+  let lastAttempt = { code: null, at: 0 };
   let running = false;
   let extensionContextValid = true;
+  // 'unknown' until the first poll resolves, then 'ok' / 'error'. Only
+  // TRANSITIONS are reported, so a sustained outage never spams the banner.
+  let pollHealth = 'unknown';
+  let warnedMissingPingId = false;
 
   // ─── Banner UI ────────────────────────────────────────────────
   // Single fixed banner, bottom-right. States: idle (hidden), working,
@@ -99,6 +119,24 @@
       el.appendChild(row);
     }
     if (kind === 'success') setTimeout(hideBanner, 5000);
+  }
+
+  // ─── Cross-window feedback (BUG-0095) ────────────────────────
+  // The operator scans in the INVENTORY tab and watches the live; this banner
+  // renders in the TikTok dashboard tab, which is backgrounded during a show.
+  // Every outcome below was therefore invisible in practice, while Inventory
+  // showed an unconditional green "Pinged to LIVE" toast the moment the row
+  // was inserted -- a false success in the only window they were watching.
+  // A desktop notification is the one channel that reaches them regardless of
+  // focus. ("notifications" was already granted in the manifest, never used.)
+  function notifyOperator(title, message) {
+    try {
+      chrome.runtime
+        .sendMessage({ source: 'product_dashboard', type: 'autopin_notify', payload: { title, message } })
+        .catch(() => {});
+    } catch {
+      /* SW asleep or context invalidated — never let this break the pin flow */
+    }
   }
 
   // ─── Persistent attempt log (BUG-0095 field-test aid) ─────────
@@ -176,9 +214,14 @@
     return null;
   }
 
-  /** Find the product row whose title contains the SKU. root defaults to page. */
-  function findRowBySku(sku, root) {
-    const { elements: rows } = findAllElements(S.productRow, root);
+  /**
+   * Find the product row whose title contains the SKU. root defaults to page.
+   * rowSelector defaults to the main-list chain; the add-modal passes its own
+   * (S.addModalProductRow was defined but never wired up — the modal search
+   * was silently relying on the main-list chain's table fallback).
+   */
+  function findRowBySku(sku, root, rowSelector = S.productRow) {
+    const { elements: rows } = findAllElements(rowSelector, root);
     for (const row of rows) {
       // readText takes a selector CHAIN + root (dom-adapter API)
       const title = readText(S.productTitle, row) || row.textContent || '';
@@ -246,7 +289,8 @@
     const searchInput = await typeIntoSearch(S.addModalSearchInput, sku, modal);
     if (!searchInput) return { success: false, step: 'modal_search', error: 'Search box inside the dialog not found' };
 
-    const row = await waitForCondition(() => findRowBySku(sku, modal), FIND_TIMEOUT_MS);
+    const modalRowChain = [...S.addModalProductRow, ...S.productRow];
+    const row = await waitForCondition(() => findRowBySku(sku, modal, modalRowChain), FIND_TIMEOUT_MS);
     if (!row) {
       return {
         success: false, step: 'modal_find_product',
@@ -280,6 +324,7 @@
       if (!searchInput) {
         showBanner('error', [{ b: sku }, ' — product search box not found on this page (step: find_search)']);
         logAttempt({ sku, spotlight_id: spotlightId, outcome: 'error', step: 'find_search', error: 'product search box not found' });
+        notifyOperator(`Auto-pin failed — ${sku}`, 'Product search box not found (step: find_search). Pin manually.');
         return;
       }
 
@@ -294,6 +339,7 @@
             { label: 'Retry', onClick: () => { hideBanner(); runAutoPin(spotlight, { allowAdd: true }); } },
           ]);
           logAttempt({ sku, spotlight_id: spotlightId, outcome: 'error', step: added.step, error: added.error });
+          notifyOperator(`Auto-pin failed — ${sku}`, `${added.error} (step: ${added.step})`);
           return;
         }
         await typeIntoSearch(S.searchInput, sku);
@@ -308,6 +354,7 @@
             { label: 'Dismiss', onClick: hideBanner },
           ]);
         logAttempt({ sku, spotlight_id: spotlightId, outcome: 'not_in_showcase' });
+        notifyOperator(`Not in the live showcase — ${sku}`, 'Open the TikTok dashboard tab to add it, or pin manually.');
         return;
       }
 
@@ -317,11 +364,14 @@
           ? [{ b: sku }, ' is already pinned.']
           : ['📌 ', { b: sku }, ' pinned to the live.']);
         logAttempt({ sku, spotlight_id: spotlightId, outcome: result.alreadyPinned ? 'already_pinned' : 'pinned', added: allowAdd });
+        notifyOperator(result.alreadyPinned ? `Already pinned — ${sku}` : `Pinned — ${sku}`,
+          result.alreadyPinned ? 'That bag was already pinned to the live.' : 'Now pinned to the live.');
       } else {
         showBanner('error', [{ b: sku }, ` — ${result.error} (step: ${result.step})`], [
           { label: 'Retry', onClick: () => { hideBanner(); runAutoPin(spotlight); } },
         ]);
         logAttempt({ sku, spotlight_id: spotlightId, outcome: 'error', step: result.step, error: result.error });
+        notifyOperator(`Auto-pin failed — ${sku}`, `${result.error} (step: ${result.step})`);
       }
     } finally {
       running = false;
@@ -329,6 +379,33 @@
   }
 
   // ─── Spotlight polling ────────────────────────────────────────
+
+  /**
+   * Report poll health on TRANSITION only.
+   *
+   * Before this, a failing service-worker fetch and "nothing is spotlighted"
+   * took the same silent `return` — which made "auto-pin never works"
+   * indistinguishable from "auto-pin never ran" from the operator's seat.
+   * That ambiguity is the reason BUG-0095 sat undiagnosed for six weeks.
+   */
+  function setPollHealth(next, detail) {
+    if (pollHealth === next) return;
+    const previous = pollHealth;
+    pollHealth = next;
+    if (next === 'ok') {
+      console.info('[LivePilot AutoPin] Spotlight endpoint reachable — auto-pin is armed.');
+      // Only clear a banner we own, and never stomp a pin result mid-flight.
+      if (previous === 'error' && !running) hideBanner();
+    } else if (next === 'error') {
+      console.error(`[LivePilot AutoPin] Spotlight poll FAILED: ${detail}`);
+      logAttempt({ outcome: 'poll_error', error: String(detail) });
+      if (!running) {
+        showBanner('error', ['Auto-pin cannot reach the Inventory system — ', { b: String(detail) },
+          '. Scans will NOT pin until this clears.']);
+      }
+      notifyOperator('LivePilot auto-pin is offline', `Cannot reach Inventory: ${detail}`);
+    }
+  }
 
   async function pollSpotlight() {
     if (!extensionContextValid || running) return;
@@ -339,17 +416,53 @@
       // Extension reloaded/updated under us — stop cleanly.
       if (String(err?.message).includes('Extension context invalidated')) {
         extensionContextValid = false;
+        console.warn('[LivePilot AutoPin] Extension was reloaded — reload this dashboard tab to re-arm auto-pin.');
+        return;
       }
+      setPollHealth('error', err?.message || 'service worker unreachable');
       return;
     }
+
+    // The SW reports transport/HTTP failures in-band; they used to be dropped
+    // on the floor here, identically to a legitimate empty spotlight.
+    if (response && response.success === false) {
+      setPollHealth('error', response.error || 'unknown error');
+      return;
+    }
+    setPollHealth('ok');
+
     const spotlight = response?.data;
     if (!spotlight || !spotlight.screening_code) return;
 
-    const spotlightId = spotlight.id ?? spotlight.screening_code;
-    if (spotlightId === lastHandledSpotlightId) return;
-    lastHandledSpotlightId = spotlightId;
+    const code = spotlight.screening_code;
 
-    console.info(`[LivePilot AutoPin] New spotlight: ${spotlight.screening_code}`);
+    // `id` is live_spotlights.id — the identity of THIS PING, not of the bag.
+    // The screening_code fallback is the pre-fix behaviour, kept only as a
+    // safety net against an old server build; on that path a re-scan of the
+    // same bag still cannot re-arm, so say so loudly and once.
+    if (spotlight.id == null && !warnedMissingPingId) {
+      warnedMissingPingId = true;
+      console.warn('[LivePilot AutoPin] Server did not send a spotlight id — falling back to the bag code. Re-scanning the SAME bag will not re-trigger auto-pin until the server is updated.');
+      logAttempt({ sku: code, outcome: 'server_missing_ping_id' });
+    }
+
+    const spotlightId = spotlight.id ?? code;
+    if (spotlightId === lastHandledSpotlightId) return;
+
+    const now = Date.now();
+    if (lastAttempt.code === code && now - lastAttempt.at < RESCAN_DEBOUNCE_MS) {
+      // Consume the id, or this branch re-evaluates every POLL_MS.
+      lastHandledSpotlightId = spotlightId;
+      const gap = now - lastAttempt.at;
+      console.info(`[LivePilot AutoPin] Ignored repeat scan of ${code} (${gap}ms after the last one — scanner double-fire).`);
+      logAttempt({ sku: code, spotlight_id: spotlightId, outcome: 'debounced_rescan', since_last_ms: gap });
+      return;
+    }
+
+    lastHandledSpotlightId = spotlightId;
+    lastAttempt = { code, at: now };
+
+    console.info(`[LivePilot AutoPin] New spotlight: ${code} (ping ${spotlightId})`);
     runAutoPin(spotlight);
   }
 
