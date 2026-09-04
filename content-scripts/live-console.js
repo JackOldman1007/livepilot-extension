@@ -804,10 +804,60 @@
     return events;
   }
 
-  // ─── Polling loop: chat scraping only (auto-pin/flash removed 2026-05-03) ──
+  // ─── Viewer-activity capture (Inventory tracker 2026-09) ─────────────
+  // The console renders "X is interested in this product  No.19" /
+  // "X added a product to cart  No.72" / "X asked to show No.3" as system rows
+  // in the Arco virtual lists. scrapeChatMessages() skips them on purpose
+  // (they are not chat). This pass scans EVERY virtual list on the page
+  // (same approach as scripts/battlecard-push.cjs, the CDP bridge that
+  // produced the real captures in data/viewers.json), classifies each row's
+  // full text, and forwards the request-worthy ones as chat events tagged
+  // event_type 'viewer_activity'. The Inventory server turns them into
+  // Request List rows with source='activity' and orders them by captured_at
+  // alongside comment-based requests.
+  const seenActivityKeys = new Set();
+  const activityClassifier = self.LivePilot?.activity;
+  function scrapeViewerActivity() {
+    if (!activityClassifier) return [];
+    const events = [];
+    const lists = document.querySelectorAll('div.arco-list-content.arco-list-virtual');
+    lists.forEach((list) => {
+      list.querySelectorAll(':scope > div > div > div').forEach((row) => {
+        const text = row.textContent?.replace(/\s+/g, ' ').trim() || '';
+        if (!text || text.length > 200) return;
+        // Cheap pre-filter before the regex pass — most rows are plain chat.
+        if (!/interested in|to cart|ask(?:ed|s)? to (?:show|see)/i.test(text)) return;
+        const hit = activityClassifier.classifyActivityLine(text);
+        if (!hit || !hit.forward) return;
+        const key = `${hit.type}|${hit.user}|${hit.productNo}`;
+        if (seenActivityKeys.has(key)) return;
+        seenActivityKeys.add(key);
+        events.push({
+          display_name: hit.user.slice(0, 200),
+          avatar_hash: null,
+          raw_message: text.slice(0, 1000),
+          badge: null,
+          event_type: 'viewer_activity',
+          captured_at: new Date().toISOString(),
+        });
+      });
+    });
+    if (seenActivityKeys.size > SEEN_KEYS_MAX) seenActivityKeys.clear();
+    if (events.length > 0) {
+      chrome.runtime.sendMessage({
+        source: 'live_console',
+        type: 'chat_messages',
+        payload: { events, scraped_at: Date.now() },
+      }).catch(() => {});
+    }
+    return events;
+  }
+
+  // ─── Polling loop: chat + viewer-activity scraping ─────────────────
   setInterval(() => {
     if (!extensionContextValid) return;
     scrapeChatMessages();
+    scrapeViewerActivity();
   }, 1500);
 
   // ─── Auto-run discovery after a short delay ────────────────────

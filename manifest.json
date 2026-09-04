@@ -39,7 +39,7 @@
         "https://*.tiktok.com/streamer*",
         "http://localhost:*/streamer*"
       ],
-      "js": ["lib/selectors.js", "lib/dom-adapter.js", "lib/discovery.js", "content-scripts/live-console.js"],
+      "js": ["lib/selectors.js", "lib/dom-adapter.js", "lib/discovery.js", "lib/activity-classifier.js", "content-scripts/live-console.js"],
       "run_at": "document_idle"
     },
     {
