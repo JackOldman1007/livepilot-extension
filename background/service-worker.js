@@ -72,6 +72,12 @@ chrome.storage?.onChanged?.addListener((changes, area) => {
 // Headers for every v1 call. Omitting Authorization entirely when unset
 // keeps the server's 401 unambiguous ("no token") rather than sending
 // "Bearer " and looking like a malformed one.
+// BUG-0104: every ingest call names the build that made it, so the server can
+// tell "this build never ran" from "this build ran and saw nothing".
+const EXTENSION_VERSION = (() => {
+  try { return chrome.runtime.getManifest().version; } catch { return 'unknown'; }
+})();
+
 function livepilotV1Headers() {
   const headers = { 'Content-Type': 'application/json' };
   if (livepilotV1Token) headers.Authorization = `Bearer ${livepilotV1Token}`;
@@ -100,6 +106,7 @@ async function openLivePilotV1Session() {
         source: 'own',
         title: `LivePilot session ${new Date().toISOString().slice(0, 16)}`,
         started_at: new Date().toISOString(),
+        extension_version: EXTENSION_VERSION,
       }),
     });
     if (resp.status === 401 || resp.status === 503) {
@@ -141,7 +148,7 @@ async function postChatEventsV1(events) {
     const resp = await fetch(`${livepilotV1Base}/chat-events`, {
       method: 'POST',
       headers: livepilotV1Headers(),
-      body: JSON.stringify({ source: 'dom', events: stamped }),
+      body: JSON.stringify({ source: 'dom', events: stamped, extension_version: EXTENSION_VERSION }),
     });
     if (!resp.ok) throw new Error(`POST /chat-events returned ${resp.status}`);
     const body = await resp.json();
@@ -154,6 +161,44 @@ async function postChatEventsV1(events) {
       postChatEventsV1._lastWarn = Date.now();
     }
     return { posted: 0, error: err.message };
+  }
+}
+
+// ─── Scan diagnostics (BUG-0104) ──────────────────────────────────
+// The content script cannot POST to patina-luxe.com itself (Origin is
+// shop.tiktok.com, rejected by CORS) so it hands the sample to the SW.
+// Throttled per page: at most one report a minute reaches the server, and
+// nothing is retried — a lost sample is replaced by the next one.
+const scanDiagLastSent = new Map();   // pageUrl -> ms
+const SCAN_DIAG_MIN_INTERVAL_MS = 60 * 1000;
+
+async function postScanDiagnostics(sample) {
+  if (!sample || typeof sample !== 'object') return { posted: false, error: 'no_sample' };
+  const key = sample.page_url || 'unknown';
+  const last = scanDiagLastSent.get(key) || 0;
+  if (Date.now() - last < SCAN_DIAG_MIN_INTERVAL_MS) return { posted: false, throttled: true };
+  scanDiagLastSent.set(key, Date.now());
+  const sid = liveSessionId || await openLivePilotV1Session();
+  try {
+    const resp = await fetch(`${livepilotV1Base}/diagnostics`, {
+      method: 'POST',
+      headers: livepilotV1Headers(),
+      body: JSON.stringify({
+        session_id: sid || undefined,
+        extension_version: EXTENSION_VERSION,
+        page_url: sample.page_url,
+        kind: 'scan_sample',
+        payload: sample,
+      }),
+    });
+    if (!resp.ok) throw new Error(`POST /diagnostics returned ${resp.status}`);
+    return { posted: true };
+  } catch (err) {
+    if (!postScanDiagnostics._lastWarn || Date.now() - postScanDiagnostics._lastWarn > 60000) {
+      console.warn(`[LivePilot SW] diagnostics POST failed: ${err.message}`);
+      postScanDiagnostics._lastWarn = Date.now();
+    }
+    return { posted: false, error: err.message };
   }
 }
 
@@ -541,6 +586,12 @@ async function handleMessage(message, sender) {
         v1Ingested: ingestResult?.ingested ?? 0,
         v1Deduplicated: ingestResult?.deduplicated ?? 0,
       };
+    }
+
+    // ─── Scan diagnostics from live-console.js (BUG-0104) ──────
+    case 'scan_diagnostics': {
+      const result = await postScanDiagnostics(payload?.sample);
+      return { success: true, ...result };
     }
 
     // ─── Load Battle Cards from Inventory API ─────────────────

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LivePilot",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "TikTok Live Commerce Operator Co-Pilot — viewer intelligence, chat capture, host display sync",
   "permissions": [
     "sidePanel",
@@ -39,7 +39,7 @@
         "https://*.tiktok.com/streamer*",
         "http://localhost:*/streamer*"
       ],
-      "js": ["lib/selectors.js", "lib/dom-adapter.js", "lib/discovery.js", "lib/activity-classifier.js", "content-scripts/live-console.js"],
+      "js": ["lib/selectors.js", "lib/dom-adapter.js", "lib/discovery.js", "lib/activity-classifier.js", "lib/scan-diagnostics.js", "content-scripts/live-console.js"],
       "run_at": "document_idle"
     },
     {

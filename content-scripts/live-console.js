@@ -853,6 +853,39 @@
     return events;
   }
 
+  // ─── Scan diagnostics (Inventory BUG-0104) ──────────────────────
+  // Zero activity events reached the server across 11 lives after the
+  // 2026-09-04 build. Once a minute, describe what this scanner can see:
+  // every virtual list (row count + first rows) and every activity-shaped
+  // line in the page text regardless of selector. The SW posts it to
+  // /api/livepilot/v1/diagnostics with the build version. Text only, bounded
+  // — never the DOM, never URLs with query strings.
+  const scanDiagnostics = self.LivePilot?.diagnostics;
+  function reportScanDiagnostics() {
+    if (!extensionContextValid || !scanDiagnostics) return;
+    try {
+      const lists = Array.from(document.querySelectorAll('div.arco-list-content.arco-list-virtual')).map((list) => ({
+        rows: Array.from(list.querySelectorAll(':scope > div > div > div')).map((row) => row.textContent || ''),
+      }));
+      const sample = scanDiagnostics.buildScanSample({
+        lists,
+        bodyText: document.body?.innerText || '',
+        pageUrl: location.href,
+      });
+      sample.activity_forwarded_total = seenActivityKeys.size;
+      chrome.runtime.sendMessage({
+        source: 'live_console',
+        type: 'scan_diagnostics',
+        payload: { sample },
+      }).catch(() => {});
+      console.info(`[LivePilot Console] scan diagnostics: ${sample.lists_found} lists, ${sample.body_activity_total} activity-shaped page lines, ${seenActivityKeys.size} forwarded so far`);
+    } catch (err) {
+      console.warn('[LivePilot Console] scan diagnostics failed:', err.message);
+    }
+  }
+  setTimeout(reportScanDiagnostics, 8000);
+  setInterval(reportScanDiagnostics, 60 * 1000);
+
   // ─── Polling loop: chat + viewer-activity scraping ─────────────────
   setInterval(() => {
     if (!extensionContextValid) return;
